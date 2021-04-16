@@ -20,13 +20,14 @@
 
 using namespace std;
 
-#define PORT 9957
+#define PORT 8888
 
 string HTM = "Content-Type: text/html\r\n";
 string HTML = "Content-Type: text/html\r\n";
 string GIF = "Content-Type: image/gif\r\n";
 string JPEG = "Content-Type: image/jpeg\r\n";
-string MP3 = "Content-Type: audio/mpeg\r\n";
+string JPG = "Content-Type: image/jpeg\r\n";
+string MP4 = "Content-Type: video/mp4\r\n";
 string PDF = "Content-Type: application/pdf\r\n";
 
 string STATUS_ERROR = "HTTP/1.1 404 Not Found\r\n" + HTML +
@@ -80,7 +81,8 @@ string parseFileType(string inputFile){
     if(file.find(".htm") != string::npos)   return HTML;
     if(file.find(".gif") != string::npos)   return GIF;
     if(file.find(".jpeg") != string::npos)  return JPEG;
-    if(file.find(".mp3") != string::npos)   return MP3;
+	if(file.find(".jpg") != string::npos)  return JPG;
+    if(file.find(".mp4") != string::npos)   return MP4;
     if(file.find(".pdf") != string::npos)   return PDF;
     return HTML;
 }
@@ -100,8 +102,8 @@ void writeResponse(int newsockfd){
 	memset(buf, 0, 8192);
 	n = read(newsockfd, buf, 8192);
 	
-	if(n < 0)   perror("read error");
-	cout << buf << '\n';
+	if(n < 0)   error("ERROR reading from socket");
+	cout << "Here is the message: " << buf << '\n';
 	
 	string fileName = parseFileName(buf);
 	if(fileName == ""){
@@ -117,7 +119,6 @@ void writeResponse(int newsockfd){
  	fileFd = open(fileName.c_str(), O_RDONLY);
  	if(fileFd < 0){
      	write(newsockfd, STATUS_ERROR.c_str(), STATUS_ERROR.length());
-     	fprintf(stderr, "Could not open file\n");
      	return;
  	}
  	if(fstat(fileFd, &fileInfo) < 0)    error("bad file");
@@ -155,7 +156,6 @@ void writeResponse(int newsockfd){
  	string respHeader = responseStatus + date + server + lastModified + contentLength
   		+ contentType + contentDisposition + closeConnection + "\r\n";
     
- 	cout << respHeader << '\n';
 
  	write(newsockfd, respHeader.c_str(), respHeader.length());
  	write(newsockfd, fileBuffer, fileLength);
@@ -168,7 +168,7 @@ int main(){
     struct sockaddr_in serv_addr, cli_addr;
     socklen_t clilen;
 
-    if((sockfd = socket(PF_INET, SOCK_STREAM, 0)) < 0)  error("socket");
+    if((sockfd = socket(PF_INET, SOCK_STREAM, 0)) < 0)  error("ERROR opening socket");
 
     memset((char *)&serv_addr, 0, sizeof(serv_addr));
 
@@ -177,7 +177,7 @@ int main(){
     serv_addr.sin_addr.s_addr = htonl(INADDR_ANY);
 
     if(bind(sockfd, (struct sockaddr *)&serv_addr, sizeof(struct sockaddr)) < 0)
-        error("bind");
+        error("ERROR on binding");
     
     if(listen(sockfd, 10) < 0)
         error("listen");
@@ -196,7 +196,6 @@ int main(){
     while(true){
         if((newsockfd = accept(sockfd, (struct sockaddr *)&cli_addr, &clilen)) < 0)
             error("ERROR on accept");
-        
         pid_t pid = fork();
 
         if(pid == 0){
